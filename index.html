@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+  <title>福井県食品品目ランキング（2013年 - 2021年の平均値）</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.6/dayjs.min.js"></script>
+</head><body>
+  <h1 id=title></h1>
+  順位<select id="rank-select"></select>位まで
+  <ul id="rank-list"></ul>
+  <hr />
+  <a href="https://www.stat.go.jp/data/kakei/5.html" target="_blank">xslxデータ</a>
+  (<a href="https://github.com/EiichiMiyagawa/fukui-food-ranking" target="_blank">src on GitHub</a>)<br>
+</div>
+
+<script type="module">
+  import { CSV } from "https://js.sabae.cc/CSV.js";
+  import { addComma } from "https://js.sabae.cc/addComma.js";
+  
+  // iOS14以前に関する対応（top-level await未対応のため）
+  addEventListener("load", async () => {
+    title.textContent = document.title;
+    
+    const rankBaseData = {};
+    
+    const files = [
+    "./rank13-15.csv",
+    "./rank16-18.csv",
+    "./rank19-21.csv"
+    ];
+    
+    const raknSelectElement = document.getElementById("rank-select");
+    const items = [];
+
+    for (const fn of files) {
+      const data = await CSV.fetch(fn);
+      const csv = await CSV.toJSON(data);
+
+      if (fn == files[0]) {
+        for (let n = 1; n <= csv.length; n++) {
+          const option = document.createElement("option");
+          option.textContent = n;
+          option.value = n;
+          if (n == 1) {
+            option.setAttribute("selected", true);
+          }
+          raknSelectElement.appendChild(option);
+        }
+      }
+      
+      const keys = Object.keys(csv[0]);
+      let index = 0;
+      for (const key of keys) {
+        if (index == 0) {
+          index++;
+          continue;
+        }
+
+        const k = key.split("：")[0];
+
+        if (index % 2 == 1) {
+          if (!rankBaseData[k]) {
+            rankBaseData[k] = {};
+          }
+
+          if (fn == files[0]) {
+            items.push(k);
+          }
+        }
+        
+        for (const c of csv) {
+          if (index % 2 == 1 && !rankBaseData[k][c[key]]) {
+            rankBaseData[k][c[key]] = 0;
+          } else if (index % 2 == 0) {
+            rankBaseData[k][c[k + "：市区名"]] += (Number(c[key]) * 3);
+          }
+        };
+        
+        index++;
+      }
+    }
+    
+    const rankData = {};
+    Object.keys(rankBaseData).forEach((key) => {
+      rankData[key] = [];
+      Object.keys(rankBaseData[key]).forEach((key2) => {
+        const obj = {
+          name: key2,
+          value: rankBaseData[key][key2]
+        };
+        rankData[key].push(obj);
+      });
+      
+      rankData[key].sort((a, b) => {
+        return b.value - a.value;
+      });
+    });
+    
+    const show = () => {
+      const rankListElement = document.getElementById("rank-list");
+      rankListElement.innerHTML = "";
+
+      items.forEach((key) => {
+      const rank = raknSelectElement.value;
+      const higherRank = rankData[key].slice(0, rank);
+      const targetIndex = higherRank.findIndex((hr) => {
+        return hr.name == "福井市";
+      });
+
+      if (targetIndex != -1) {
+        const li = document.createElement("li");
+        li.textContent = `${key}：${addComma(Math.round(higherRank[targetIndex].value / 9))}　${targetIndex + 1}位`;
+        rankListElement.appendChild(li);
+      }
+    });
+    };
+    
+    raknSelectElement.onchange = (_) => {
+      show();
+    };
+    show();
+  });
+  
+</script>
+
+<style>
+  body {
+    font-family: sans-serif;
+  }
+</style>
